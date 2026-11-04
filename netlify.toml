@@ -1,0 +1,9 @@
+# Netlify runs Next.js through its OpenNext adapter, detected automatically.
+# The database must be external (Neon or Supabase both support PostGIS); bulk loaders run
+# from a laptop or CI against that database, never inside Netlify functions.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

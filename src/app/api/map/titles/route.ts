@@ -1,0 +1,14 @@
+import { NextResponse } from 'next/server';
+import { query } from '@/lib/db';
+import { parseBbox } from '../../_util';
+
+export async function GET(req: Request) {
+  const bbox = parseBbox(new URL(req.url).searchParams.get('bbox'));
+  if (!bbox || bbox[2] - bbox[0] > 0.03) return NextResponse.json({ type: 'FeatureCollection', features: [] });
+  const rows = await query<{ fc: GeoJSON.FeatureCollection }>(`
+    SELECT json_build_object('type', 'FeatureCollection', 'features', coalesce(json_agg(json_build_object(
+      'type', 'Feature', 'id', inspire_id, 'properties', json_build_object('inspire_id', inspire_id, 'area_m2', round(area_m2)),
+      'geometry', ST_AsGeoJSON(geom, 7)::json)), '[]'::json)) AS fc
+    FROM (SELECT * FROM title_polygon WHERE geom && ST_MakeEnvelope($1, $2, $3, $4, 4326) LIMIT 5000) t`, bbox);
+  return NextResponse.json(rows[0].fc);
+}
