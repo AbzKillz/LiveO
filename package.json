@@ -14,7 +14,8 @@
     "load:epc": "tsx scripts/load-epc.ts",
     "load:pricepaid": "tsx scripts/load-price-paid.ts",
     "load:inspire": "tsx scripts/load-inspire.ts",
-    "load:onspd": "tsx scripts/load-onspd.ts"
+    "load:onspd": "tsx scripts/load-onspd.ts",
+    "netlify:setup": "tsx scripts/netlify-setup.ts"
   },
   "keywords": [],
   "author": "",

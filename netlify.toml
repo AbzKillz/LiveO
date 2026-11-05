@@ -2,7 +2,7 @@
 # The database must be external (Neon or Supabase both support PostGIS); bulk loaders run
 # from a laptop or CI against that database, never inside Netlify functions.
 [build]
-  command = "npm run build"
+  command = "npm run netlify:setup && npm run build"
   publish = ".next"
 
 [[plugins]]
