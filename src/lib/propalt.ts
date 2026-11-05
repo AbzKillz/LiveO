@@ -1,5 +1,6 @@
 import { cached } from './cache';
 import { UpstreamError } from './http';
+import { snapshotQuery } from './snapshot';
 
 /**
  * Propalt REST client.
@@ -114,9 +115,16 @@ export interface PropaltListing {
   current_price?: number | null;
   brand_name?: string | null;
   predict_price?: number | null;
+  /** Lettings only: predicted monthly rent. */
+  predict_rental_price?: number | null;
   current_energy_rating?: string | null;
   total_floor_area?: number | null;
   tax_band?: string | null;
+}
+
+/** The estimate to compare a listing's price against: rent for lettings, value for sales. */
+export function estimateFor(r: PropaltListing, side: 'sale' | 'let'): number | null {
+  return (side === 'let' ? r.predict_rental_price : r.predict_price) ?? null;
 }
 
 export interface ListingQuery {
@@ -131,7 +139,13 @@ export interface ListingQuery {
   page?: number;
 }
 
-export async function searchListings(q: ListingQuery, userEmail?: string) {
+/** True when listings come from the bundled snapshot instead of the live API. */
+export function usingSnapshot() {
+  return !propaltConfigured() && process.env.PROPALT_SNAPSHOT !== '0';
+}
+
+export async function searchListings(q: ListingQuery, userEmail?: string): Promise<{ data: { data: PropaltListing[]; count: number }; cached: boolean }> {
+  if (usingSnapshot()) return { data: snapshotQuery(q as ListingQuery & Record<string, unknown>), cached: true };
   const { side, ...body } = q;
   const progress = body.progress ?? (side === 'sale' ? 'for_sale' : 'for_rent');
   return propalt<{ data: PropaltListing[]; count: number }>(
@@ -148,6 +162,7 @@ export function formatPropaltAddress(l: Pick<PropaltListing, 'formatting_address
 }
 
 export async function countListings(q: ListingQuery, userEmail?: string) {
+  if (usingSnapshot()) return { count: snapshotQuery(q as ListingQuery & Record<string, unknown>).count, cached: true };
   const { side, ...body } = q;
   const progress = body.progress ?? (side === 'sale' ? 'for_sale' : 'for_rent');
   const { data, cached: wasCached } = await propalt<{ count: number }>(

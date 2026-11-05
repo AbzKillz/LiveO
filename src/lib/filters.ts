@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ListingQuery, PropaltListing } from './propalt';
+import { estimateFor, type ListingQuery, type PropaltListing } from './propalt';
 
 /** A [min, max] pair where either end may be null for "no limit". */
 const range = z.tuple([z.number().nullable(), z.number().nullable()]).default([null, null]);
@@ -93,8 +93,9 @@ export function toPropaltQueries(f: Filters): ListingQuery[] {
 export function postFilter(rows: PropaltListing[], f: Filters): PropaltListing[] {
   return rows.filter((r) => {
     if (f.minBelowEstimatePct != null) {
-      if (!r.current_price || !r.predict_price) return false;
-      if ((1 - r.current_price / r.predict_price) * 100 < f.minBelowEstimatePct) return false;
+      const est = estimateFor(r, f.side);
+      if (!r.current_price || !est) return false;
+      if ((1 - r.current_price / est) * 100 < f.minBelowEstimatePct) return false;
     }
     if (f.minPriceCutPct != null) {
       if (!r.current_price || !r.first_listed_price) return false;

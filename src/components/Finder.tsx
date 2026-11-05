@@ -63,6 +63,7 @@ export function Finder({ initialDistrict }: { initialDistrict?: string }) {
   const [count, setCount] = useState<{ total: number; byOutcode: { outcode: string; count: number }[] } | null>(null);
   const [results, setResults] = useState<Listing[]>([]);
   const [hasMore, setHasMore] = useState(false);
+  const [snapshot, setSnapshot] = useState<string | null>(null);
   const [loading, setLoading] = useState<'count' | 'search' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>('newest');
@@ -225,8 +226,9 @@ export function Finder({ initialDistrict }: { initialDistrict?: string }) {
   async function search(page = 0) {
     setLoading('search');
     const body = { ...f, page };
-    const j = await post<{ results: Listing[]; hasMore: boolean }>('/api/listings/search', body);
+    const j = await post<{ results: Listing[]; hasMore: boolean; snapshot: string | null }>('/api/listings/search', body);
     if (j) {
+      setSnapshot(j.snapshot);
       setResults((prev) => (page === 0 ? j.results : [...prev, ...j.results]));
       setHasMore(j.hasMore);
       setF(body);
@@ -391,11 +393,16 @@ export function Finder({ initialDistrict }: { initialDistrict?: string }) {
           </select>
         </div>
         {error && <div className="error">{error}</div>}
+        {snapshot && (
+          <div className="error" style={{ background: 'var(--warn-soft)', color: 'var(--warn)' }}>
+            Test mode: Propalt listings for NW1 and NW3 captured on {snapshot}, filtered locally. Live listings and property pages start once a Propalt API key is set.
+          </div>
+        )}
         <div className="results">
           {!results.length && !error && <div className="empty">Pick districts, set your filters, then press Show listings.</div>}
           {sorted.map((r) => (
-            <a key={r.property_id} id={`l-${r.property_id}`} className={`card ${highlight === r.property_id ? 'hl' : ''}`}
-              href={`/api/property/resolve?propalt_id=${r.property_id}`} onMouseEnter={() => setHighlight(r.property_id)}>
+            <Card key={r.property_id} id={`l-${r.property_id}`} className={`card ${highlight === r.property_id ? 'hl' : ''}`}
+              href={snapshot ? undefined : `/api/property/resolve?propalt_id=${r.property_id}`} onMouseEnter={() => setHighlight(r.property_id)}>
               <div className="price">{fullMoney(r.current_price)}{f.side === 'let' ? ' pcm' : ''}</div>
               <div className="addr">{r.address}</div>
               <div className="meta">
@@ -411,13 +418,18 @@ export function Finder({ initialDistrict }: { initialDistrict?: string }) {
                 {r.below_estimate_pct != null && r.below_estimate_pct > 0 && <span className={`badge ${r.below_estimate_pct >= 10 ? 'good' : ''}`}>{r.below_estimate_pct}% below estimate</span>}
                 {r.price_cut_pct != null && r.price_cut_pct > 0 && <span className="badge warn">Cut {r.price_cut_pct}%</span>}
               </div>
-            </a>
+            </Card>
           ))}
           {hasMore && <div style={{ padding: 16 }}><button className="btn block" disabled={loading !== null} onClick={() => search(f.page + 1)}>Load next page</button></div>}
         </div>
       </aside>
     </div>
   );
+}
+
+/** A listing card is a link only when it can open a property page. */
+function Card({ href, ...rest }: React.HTMLAttributes<HTMLElement> & { href?: string }) {
+  return href ? <a href={href} {...rest} /> : <div {...rest} />;
 }
 
 function syncSelection(m: maplibregl.Map, now: string[], before: string[]) {

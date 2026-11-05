@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { FilterSchema, postFilter, toPropaltQueries, weeksListed } from '@/lib/filters';
-import { formatPropaltAddress, searchListings } from '@/lib/propalt';
+import { estimateFor, formatPropaltAddress, searchListings, usingSnapshot } from '@/lib/propalt';
+import { SNAPSHOT_DATE } from '@/lib/snapshot';
 import { currentUser } from '@/lib/request';
 import { errorResponse } from '../../_util';
 
@@ -17,12 +18,13 @@ export async function POST(req: Request) {
       ...r,
       address: formatPropaltAddress(r),
       weeks_on_market: weeksListed(r.first_listed_date),
-      below_estimate_pct: r.current_price && r.predict_price ? Math.round((1 - r.current_price / r.predict_price) * 1000) / 10 : null,
+      below_estimate_pct: r.current_price && estimateFor(r, f.side) ? Math.round((1 - r.current_price / estimateFor(r, f.side)!) * 1000) / 10 : null,
       price_cut_pct: r.current_price && r.first_listed_price ? Math.round((1 - r.current_price / r.first_listed_price) * 1000) / 10 : null,
     }));
     return NextResponse.json({
       results: kept,
       page: f.page,
+      snapshot: usingSnapshot() ? SNAPSHOT_DATE : null,
       // A district has more pages while it returned a full page of 20.
       hasMore: pages.some((p) => (p.data.data?.length ?? 0) >= 20),
       calls: pages.filter((p) => !p.cached).length,
